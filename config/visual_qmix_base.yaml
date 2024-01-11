@@ -1,0 +1,92 @@
+# --- QMIX specific parameters ---
+
+# --- Agent Parameters ---
+obs_agent_id: True
+rnn_hidden_dim: 64
+action_selector: "epsilon_greedy"
+epsilon_start: 1.0
+epsilon_finish: 0.05
+epsilon_anneal_time: 500000
+t_max: 5000 #number of timesteps to train for before interrupting
+
+worker_parameter_sync_frequency: 1 # How many parameter updates should occur before the workers sync. 
+
+# --- REPLAY Parameters ---
+use_per: True # use prioritized experience replay
+prioritized_buffer_alpha: 0.6
+per_eta: 0.9
+buffer_size: 2400 # this will be very heavily dependent on your available RAM, as well as episode length limit
+
+# --- RL hyperparameters ---
+batch_size: 32 # number of episodes used to backprop and update networks
+random_update: True # whether a subset sequence of transitions should be sampled from each episode
+recurrent_sequence_length: 96 # how many transitions should be sampled from each episode in the batch, if random_update = True
+lr: 0.0001 # Learning rate for agents
+optim_alpha: 0.99 # RMSProp alpha
+optim_eps: 0.00001 # RMSProp epsilon
+grad_norm_clip: 20 # Reduce magnitude of gradients above this L2 norm
+
+#--- R2D2 Stuff ---
+# use_burnin implies that we will store hidden states
+use_burnin: True
+burn_in_step_count: 32 #number of steps to burn hidden state in
+value_fn_rescaling: False
+
+#Ablation
+num_executors: 8 # capped at total_num_cpu_threads - 4
+n_step_return: True
+n_step: 8
+standardise_rewards: True
+
+#Transfer_learning:
+use_transfer: False
+models_2_transfer_path: "./results/full_space_succeed_transfer/models/15000"
+
+
+# --- Stuff ---
+reward_clip_max: 5
+reward_clip_min: -5
+
+#--- Curiosity ---
+curiosity: False
+
+# update the target network every {} episodes
+target_update_interval: 100
+
+# use the Q_Learner to train
+agent_output_type: "q"
+double_q: True
+mixer: "qmix"
+mixing_embed_dim: 32
+hypernet_layers: 2
+hypernet_embed: 64
+
+# --- Environment Specific Options ---
+time_scale: 5
+executable_path: "./environment_executables/Ablation_Reduced_Act_Space/Ablation_Reduced_Act_Space.x86_64"
+num_agents: 2
+episode_limit: 300 # max number of steps in an episode
+grayscale: False
+
+name: "experiment_1_ablation"
+
+# --- Encoder Options ---
+load_pretrained_model: False
+encoder_output_size: 256
+
+# --- Test ---
+save_obs_for_debug: False
+test_executable_path: "./environment_executables/experiment_5_visible/experiment_5_visible.x86_64"
+test_models_path: "./results/experiment_5_transfer/models/40000"
+num_test_episodes: 400
+test_timescale: 1
+
+
+# --- Logging options ---
+#use_tensorboard: True # Log results to tensorboard
+save_models: True # Save the models to disk
+save_models_interval: 500 # Save models after this many trainer steps
+local_results_path: "results" # Path for local results
+log_every: 20 #log every time this number of trainer steps has elapsed
+
+
