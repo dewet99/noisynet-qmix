@@ -23,7 +23,6 @@ import pdb
 
 from torch.utils.tensorboard import SummaryWriter
 
-from models.NatureVisualEncoder import NatureVisualEncoder
 
 
 @ray.remote(num_cpus = 1,num_gpus=0.0001, max_restarts=20)
@@ -78,10 +77,6 @@ class Executor(object):
 
         
         self.env_info = env.get_env_info()
-        print('================================')
-        print(env_info)
-        pdb.set_trace()
-        print('================================')
         
         # self.get_env_info()
         self.setup()
@@ -196,7 +191,6 @@ class Executor(object):
                 if param_updates % self.config["worker_parameter_sync_frequency"] == 0:
                     # These two can be the same function but I leave as is for now
                     self.sync_with_parameter_server()
-                    self.sync_with_param_server_encoder()
                 
                 episode_batch = self.collect_experience()
 
@@ -226,14 +220,14 @@ class Executor(object):
     def setup(self):
         scheme, groups, preprocess = self.generate_scheme()
     
-        self.mac = CustomMAC(self.config, encoder = self.encoder, device = self.device)
+        self.mac = CustomMAC(self.config, scheme, device = self.device)
 
         self.new_batch = partial(EpisodeBatch, scheme, groups, self.config["batch_size_run"], self.config["episode_limit"]+1, preprocess = preprocess, device = "cpu")
 
-    def get_env_info(self):
-        self.config["obs_shape"] = self.env.obs_shape
-        self.env_info = self.env.get_init_env_info()
-        self.config["n_actions"] = self.env_info["n_actions"]
+    # def get_env_info(self):
+    #     self.config["obs_shape"] = self.env.obs_shape
+    #     self.env_info = self.env.get_init_env_info()
+    #     self.config["n_actions"] = self.env_info["n_actions"]
 
     def setup_logger(self):
         self.log_dir = "results/" + self.config["name"] +"_" + datetime.datetime.now().strftime("%d_%m_%H_%M")
@@ -262,7 +256,7 @@ class Executor(object):
         }
 
         preprocess = {
-        "actions": ("actions_onehot", [OneHot(out_dim=self.config["n_actions"])])
+        "actions": ("actions_onehot", [OneHot(out_dim=self.env_info["n_actions"])])
         }
 
         return scheme, groups, preprocess
@@ -279,16 +273,6 @@ class Executor(object):
             if param_name in new_params:
                 param_data = torch.tensor(ray.get(new_params[param_name])).to(self.device)
                 param_val.data.copy_(param_data)
-
-
-    def sync_with_param_server_encoder(self):
-        new_params = ray.get(self.parameter_server.return_encoder_params.remote())
-
-        for param_name, param_val in self.encoder.named_parameters():
-            if param_name in new_params:
-                param_data = torch.tensor(ray.get(new_params[param_name])).to(self.device)
-                param_val.data.copy_(param_data)
-
 
 
 

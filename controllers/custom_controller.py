@@ -1,4 +1,4 @@
-from models.icm_agent import ICMAgent
+from models.icm_agent import RNNAgent
 from components.action_selectors import EpsilonGreedyActionSelector, DiscreteNoisyGreedyActionSelector
 import torch as th
 import pdb
@@ -7,13 +7,13 @@ import traceback
 
 # This multi-agent controller shares parameters between agents
 class CustomMAC():
-    def __init__(self, config, device = "cuda:0"):
+    def __init__(self, config, scheme, device = "cuda:0"):
         super().__init__()
         self.n_agents = config["num_agents"]
         self.config = config
-        # input_shape = self._get_input_shape()
+        input_shape = self._get_input_shape(scheme)
         self.device = device
-        self._build_agents()
+        self._build_agents(input_shape)
         self.agent_output_type = config["agent_output_type"]
         
         if self.config["action_selector"] == "epsilon_greedy":
@@ -71,21 +71,27 @@ class CustomMAC():
         
         # Depends on how you defined your replay buffer observation storate dtype. I used integers to be able to store 
         # more of them, but dtype choice will depend on graphical fidelity of your environment.
-        if batch["obs"][:,t].dtype == th.uint8:
-            obs = (batch["obs"][:,t]).to(th.float32)/255
-        else:
-            obs = batch["obs"][:,t]
+        # if batch["obs"][:,t].dtype == th.uint8:
+        #     obs = (batch["obs"][:,t]).to(th.float32)/255
+        # else:
+        #     obs = batch["obs"][:,t]
 
-        try:
-            feature = self.encoder(obs.squeeze())
-            if training:
-                feature = feature.reshape(bs, self.config["num_agents"], -1)
-        except Exception as e:
-            traceback.print_exc()
+        # try:
+        #     feature = self.encoder(obs.squeeze())
+        #     if training:
+        #         feature = feature.reshape(bs, self.config["num_agents"], -1)
+        # except Exception as e:
+        #     traceback.print_exc()
 
 
         # print(feature.shape)
-        inputs.append(batch["obs"])  # b1av
+        inputs.append(batch["obs"][:, t])  # b1av
+
+        if self.config["obs_last_action"]:
+            if t == 0:
+                inputs.append(th.zeros_like(batch["actions_onehot"][:, t]))
+            else:
+                inputs.append(batch["actions_onehot"][:, t-1])
 
         if self.config["obs_agent_id"]:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
@@ -129,17 +135,16 @@ class CustomMAC():
     def load_models(self, path):
         self.agent.load_state_dict(th.load("{}/agent.th".format(path), map_location=lambda storage, loc: storage))
 
-    def _build_agents(self):
-        self.agent = ICMAgent(self.config, self.device).to(self.device)
+    def _build_agents(self, input_shape):
+        self.agent = RNNAgent(self.config, input_shape, self.device).to(self.device)
 
-    # def _get_input_shape(self):
-    #     # If there is an encoder, the input shape to the NN's is the output shape of the encoder
-    #     input_shape = self.config["encoder_output_size"]
-        
-    #     if self.config["obs_agent_id"]:
-    #         input_shape += self.n_agents
+    def _get_input_shape(self, scheme):
+        input_shape = scheme["obs"]["vshape"]
+        if self.config["obs_last_action"]:
+            input_shape += scheme["actions_onehot"]["vshape"][0]
+        if self.config["obs_agent_id"]:
+            input_shape += self.n_agents
 
-    #     return input_shape
-    
+        return input_shape
     def reset_agent_noise(self):
         self.agent.reset_noise()
