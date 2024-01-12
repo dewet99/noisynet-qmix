@@ -120,7 +120,9 @@ class EpisodeBatch(object):
                     v = np.array(v)
                 v = th.tensor(v, dtype=dtype, device=self.device)
 
+            # print(f"Check safe view for {k}")
             self._check_safe_view(v, target[k][_slices])
+            # print("View safe")
             target[k][_slices] = v.view_as(target[k][_slices])
             
 
@@ -823,24 +825,21 @@ def generate_replay_scheme(config):
 
     scheme = {
             "state": {"vshape": config["state_shape"]},
-            "obs": {"vshape": config["obs_shape"], "group": "agents", "dtype": th.uint8},
+            "obs": {"vshape": config["obs_shape"], "group": "agents"},
             "actions": {"vshape": (1,), "group": "agents", "dtype": th.uint8},
             "avail_actions": {"vshape": (config["n_actions"],), "group": "agents", "dtype": th.int},
             "reward": {"vshape": (1,)},
             "terminated": {"vshape": (1,), "dtype": th.uint8},
             }
         
-    if config["curiosity"]:
-        icm_reward = {"icm_reward": {"vshape": (1,)},}
-        scheme.update(icm_reward)
 
     if config["use_burnin"]:
-        hidden_states = {"hidden_state": {"vshape": (1, 2,config["rnn_hidden_dim"]), "dtype": th.float32}}
+        hidden_states = {"hidden_state": {"vshape": (1, config["n_agents"],config["rnn_hidden_dim"]), "dtype": th.float32}}
         scheme.update(hidden_states)
 
     
     groups = {
-    "agents": config["num_agents"]
+    "agents": config["n_agents"]
     }
 
     preprocess = {

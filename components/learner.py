@@ -15,7 +15,6 @@ from components.replay_buffer import EpisodeBatch
 import traceback
 
 import os
-from models.NatureVisualEncoder import NatureVisualEncoder
 import yaml
 from utils.utils import signed_hyperbolic, signed_parabolic
 from models.ICMModel_2 import ICMModel
@@ -28,35 +27,18 @@ class Learner(object):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.global_training_steps = config["t_max"]
 
-        # Create encoder/feature extractor
-        self.encoder = NatureVisualEncoder(self.config["obs_shape"][0],
-                                           self.config["obs_shape"][1],
-                                           self.config["obs_shape"][2],
-                                           self.config,
-                                           device=self.device
-                                           )
         
-        self.mac = CustomMAC(self.config, encoder=self.encoder)
+        self.mac = CustomMAC(self.config)
 
         if self.config["use_transfer"]:
-            self.encoder.load_state_dict(torch.load(self.config["models_2_transfer_path"] + "/encoder.th"))
             self.mac.load_models(self.config["models_2_transfer_path"])
-            
-
-        if self.config["curiosity"]:
-            self.icm = ICMModel(output_size=config["n_actions"], observation_size=config["encoder_output_size"], device=self.device, input_obs_shape=config["obs_shape"], config=self.config, encoder=self.encoder).to(self.device)
-            self.icm_trainable_parameters = nn.ParameterList(self.icm.parameters())
-            self.icm_optimiser = Adam(params=self.icm_trainable_parameters, lr=self.config["lr"], eps = self.config["optim_eps"])
-            self.intrinsic_reward_rms = RunningMeanStdTorch(shape=(1,), device=self.device)
 
     
         # Create parameterlist to train:
         self.trainable_parameters = nn.ParameterList(self.mac.agent.parameters())
-        self.trainable_parameters+=nn.ParameterList(self.encoder.parameters())
             
         # Parameter server lists - stores the names of the parameters that should be stored in the parameter server
         self.parameter_server_list = list(self.mac.agent.state_dict())
-        self.parameter_server_encoder_list = list(self.encoder.state_dict())
 
         # Setup Mixer
         self.mixer = QMixer(config)
@@ -78,8 +60,7 @@ class Learner(object):
 
 
         # Target Networks:
-        # Deepcopy encoder, otherwise target and online networks use same encoder
-        self.target_mac = CustomMAC(self.config, encoder=deepcopy(self.encoder))
+        self.target_mac = CustomMAC(self.config)
         self.target_mixer = deepcopy(self.mixer)
 
         # Initialise timing variables
@@ -174,11 +155,18 @@ class Learner(object):
     def training_loop(self, batch, num_global_episodes, log_this_step):
 
         try:
+            
             if self.config["use_burnin"]:
+                do_burn_in = False
                 # Get the hidden state from the replay buffer to start burn-in
                 init_hidden_state = batch["hidden_state"][0,0]
-                burnin_batch = batch[:, :self.config["burn_in_step_count"]]
-                batch = batch[:, self.config["burn_in_step_count"]:]
+
+                # If the episode is long enough, slice the burn-in steps from the episode:
+                if batch["obs"].shape[1] > 2*self.config["burn_in_step_count"]:
+                    do_burn_in = True
+                    burnin_batch = batch[:, :self.config["burn_in_step_count"]]
+                    batch = batch[:, self.config["burn_in_step_count"]:]
+
             else:
                 init_hidden_state = None
 
@@ -205,8 +193,8 @@ class Learner(object):
             target_mac_out = []
             self.target_mac.init_hidden(batch.batch_size, hidden_state=init_hidden_state)
 
-            # Burn in the rnn of both the online and target networks.
-            if self.config["use_burnin"]:
+            # Burn in the rnn of both the online and target networks, if there are enough steps in the episode
+            if self.config["use_burnin"] and do_burn_in:
                 with torch.no_grad():
                     for t in range(burnin_batch["obs"].shape[1]):
                         _, _ = self.mac.forward(burnin_batch, t=t, training=True)
@@ -244,40 +232,6 @@ class Learner(object):
                 target_max_qvals = target_mac_out.max(dim=3)[0]
 
 
-            # Mix
-            if self.mixer is not None:
-                # supremely dubious curiosity - does not really work unfortunately. As in, it is functional but does not aid in learning
-                if self.config["curiosity"]:
-                    li = 0
-                    lf = 0
-                    
-                    r_t_i = []
-                    self.icm_optimiser.zero_grad()
-                    for t in range(1, T):
-                        next_obs = batch["obs"][:, t]
-                        current_obs = batch["obs"][:,t-1]
-                        inputs = [current_obs, next_obs, actions_onehot[:,t-1]]
-                        li_n, lf_n, r_t = self.icm.calculate_icm_loss(inputs)
-                        r_t_i.append(r_t)
-
-                        li+=li_n
-                        lf+=lf_n
-                        ((li_n+lf_n)/T).backward()
-
-                    # We don't want the intrinsic reward's gradient to bleed into the icm optimiser when adding the intrinsic reward to the total reward
-                    intrinsic_reward = torch.stack(r_t_i, dim=1).mean([2,3]).unsqueeze(-1).detach()
-                    rewards+=intrinsic_reward
-                    
-                    grad_norm = torch.nn.utils.clip_grad_norm_(self.icm_trainable_parameters, self.config["grad_norm_clip"])
-                    self.icm_optimiser.step()
-
-                    if log_this_step:
-                        curiosity_stats = {
-                            "Forward_loss": lf.item()/T,
-                            "Inverse_loss": li.item()/T,
-                            "ICM_grad_norm": grad_norm,
-                            "raw_intrinsic_reward": intrinsic_reward.sum().item()/B, 
-                        }
 
 
             if self.config["standardise_rewards"]:
@@ -334,7 +288,7 @@ class Learner(object):
             # Update target networks:
             if (self.trainer_steps - self.previous_target_update_episode) / (self.config["target_update_interval"]) >= 1.0:
                 try:
-                    print(f"Updating target networks at global episode {num_global_episodes}, total steps: {ray.get(self.parameter_server.return_environment_steps.remote())} ")
+                    print(f"Updating target networks at global episode {num_global_episodes}, total steps: {ray.get(self.parameter_server.return_total_steps_all_workers.remote())} ")
                     self._update_targets()
                     self.parameter_server.track_target_network_updates.remote()
                     self.previous_target_update_episode = self.trainer_steps
@@ -347,15 +301,12 @@ class Learner(object):
             losses_dict = {}
             if log_this_step:
                 losses_dict = {"total_loss" : loss.item()}
-                if self.config["curiosity"]:
-                    losses_dict.update(curiosity_stats)
-                
                 
                 mask_elems = mask.sum().item()
                 other_log_stuff = {
                     "td_error_abs": (masked_td_error.abs().sum().item()/mask_elems),
-                    "q_taken_mean": (chosen_action_qvals * mask).sum().item()/(mask_elems * self.config["num_agents"]),
-                    "target_mean": (targets * mask).sum().item()/(mask_elems * self.config["num_agents"]),
+                    "q_taken_mean": (chosen_action_qvals * mask).sum().item()/(mask_elems * self.config["n_agents"]),
+                    "target_mean": (targets * mask).sum().item()/(mask_elems * self.config["n_agents"]),
                     "learner_total_return_mean": rewards_total.sum().item()/B
                 }
                 losses_dict.update(other_log_stuff)
@@ -430,12 +381,9 @@ class Learner(object):
             
         torch.save(self.optimiser.state_dict(), "{}/opt.th".format(path))
 
-        if self.encoder is not None:
-            torch.save(self.encoder.state_dict(), "{}/encoder.th".format(path))
-
     def log_stats(self, stats_to_log:dict):
         # rather than global env steps, use trainer steps as a more consistent measure of performance over time.
-        global_environment_steps_for_logging = ray.get(self.parameter_server.return_environment_steps.remote())
+        global_environment_steps_for_logging = ray.get(self.parameter_server.return_total_steps_all_workers.remote())
         trainer_steps = self.trainer_steps
 
         # Stats obtained from the trainer:
@@ -447,7 +395,7 @@ class Learner(object):
         self.writer.add_scalar("Time_Stats/environment_steps_taken", global_environment_steps_for_logging, trainer_steps)
 
         # Log Executors' rewards
-        mean_extrinsic_reward, mean_icm_reward, mean_ep_duration, mean_ep_length, mean_total_reward = ray.get(self.parameter_server.get_accumulated_stats.remote())
+        mean_extrinsic_reward, mean_icm_reward, mean_ep_duration, mean_ep_length, mean_total_reward, avg_win_rate = ray.get(self.parameter_server.get_accumulated_stats.remote())
 
         self.writer.add_scalar("Reward_Stats/mean_total_reward", mean_total_reward, trainer_steps)
 
@@ -455,8 +403,9 @@ class Learner(object):
 
         self.writer.add_scalar("Reward_Stats/mean_ep_length", mean_ep_length, trainer_steps)
 
-        if mean_icm_reward is not None:
-            self.writer.add_scalar("Reward_Stats/mean_icm_reward", mean_icm_reward, trainer_steps)
+        self.writer.add_scalar("Reward_Stats/average_train_win_rate", avg_win_rate, trainer_steps)
+        self.writer.add_scalar("Reward_Stats/average_train_win_rate_vs_global_steps", avg_win_rate, global_environment_steps_for_logging)
+
         self.writer.add_scalar("Time_Stats/mean_episode_duration", mean_ep_duration, trainer_steps)
 
         # log worker steps
@@ -509,7 +458,7 @@ class Learner(object):
         self.parameter_server = parameter_server
 
         self.parameter_server.define_param_list.remote(self.parameter_server_list)
-        self.parameter_server.define_param_list_encoder.remote(self.parameter_server_encoder_list)
+
 
 
     def update_parameter_server(self):
@@ -518,17 +467,6 @@ class Learner(object):
 
         # The below two could be merged into a single method but meh, makes very little difference
         self.parameter_server.update_params.remote(state_dicts_to_save)
-        self.parameter_server.update_encoder_params.remote(self.encoder.state_dict())
-
-
-    def sync_encoder_with_parameter_server(self):
-        # receive the stored parameters from the server using ray.get()
-        new_params = ray.get(self.parameter_server.return_encoder_params.remote())
-
-        for param_name, param_val in self.encoder.named_parameters():
-            if param_name in new_params:
-                param_data = torch.Tensor(ray.get(new_params[param_name])).to(self.device)
-                param_val.data.copy_(param_data)
 
     def return_parameter_list(self):
         return self.parameter_server_list

@@ -1,7 +1,7 @@
 import ray
 from components.replay_buffer import Remote_ReplayBuffer, generate_replay_scheme, CustomPrioritized_ReplayBuffer
 from components.parameter_server import ParameterServer
-from utils.read_config import merge_yaml_files
+from utils.read_config import merge_yaml_files, merge_dicts
 from components.executor import Executor
 from components.testing_executor import TestExecutor
 from components.learner import Learner

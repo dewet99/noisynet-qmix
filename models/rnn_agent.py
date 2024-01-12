@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import pdb
-from models.NatureVisualEncoder import NatureVisualEncoder
 import torch
 from torch.nn import init
 # from models.ICMModel import ICMModel
@@ -19,7 +18,7 @@ class RNNAgent(nn.Module):
         super(RNNAgent, self).__init__()
         # drqn agent part
         self.config = config
-        self.n_agents = config["num_agents"]
+        self.n_agents = config["n_agents"]
         self.device = device
 
         #Working
@@ -46,7 +45,7 @@ class RNNAgent(nn.Module):
         # self.rnn = nn.GRUCell(config["rnn_hidden_dim"], config["rnn_hidden_dim"])
 
         # Removing all FFNN between CNN and RNN:
-        self.rnn = nn.GRUCell(self.input_shape , config["rnn_hidden_dim"])
+        self.rnn = nn.GRUCell(config["rnn_hidden_dim"] , config["rnn_hidden_dim"])
 
 
 
@@ -67,16 +66,10 @@ class RNNAgent(nn.Module):
 
 
     def forward(self, inputs, hidden_state, t, training = False):
-
-        # Original way
-        # x = F.relu(self.fc1(inputs))
-        # h_in = hidden_state.reshape(-1, self.config["rnn_hidden_dim"])
-        # h = self.rnn(x, h_in)
-        # q = self.fc2(h)
-
-        # Removing all FFNN between CNN and RNN:
+        
+        x = F.relu(self.fc1(inputs))
         h_in = hidden_state.reshape(-1, self.config["rnn_hidden_dim"])
-        h = self.rnn(inputs, h_in)
+        h = self.rnn(x, h_in)
         q = self.fc2(h)
 
 

@@ -41,16 +41,9 @@ agent: "rnn" # Default rnn agent
 encoder: null
 rnn_hidden_dim: 64 # Size of hidden state for default rnn agent
 obs_agent_id: True # Include the agent's one_hot id in the observation
-obs_last_action: True # Include the agent's last action (one_hot) in the observation
-random_update: False
+obs_last_action: False # Include the agent's last action (one_hot) in the observation
 
 # --- Experiment running params ---
 repeat_id: 1
 label: "default_label"
 
-useNoisy: False
-curiosity: False
-tb_directory: ""
-encoder_logs_dir: ""
-use_per: False
-normalise_obs: False

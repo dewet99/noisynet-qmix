@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#StarCraftII
+3rdparty/
+
+
+#Custom FOlders
+results/
 # C extensions
 *.so
 

@@ -12,7 +12,7 @@ class ParameterServer(object):
         self.encoder_params = {}
         self.ICM_encoder_params = {}
         self.target_network_update_tracker = []
-        self.environment_steps = 0
+        self.total_steps_all_workers = 0
         
         self.config = config
         self.define_worker_schedule_tracker()
@@ -20,6 +20,7 @@ class ParameterServer(object):
         self.parameter_updates = 0
 
         self.cumulative_rewards = 0
+        self.avg_win_rate = 0
         self.icm_reward = 0
         self.num_episodes_accumulated_over = 0
 
@@ -58,9 +59,10 @@ class ParameterServer(object):
             print (f"In {__file__}: {e}")
 
     def track_target_network_updates(self):
-        self.target_network_update_tracker.append(self.environment_steps)
-        dir = self.log_dir + "/target_updates"
-        np.save(dir, self.target_network_update_tracker)
+        pass
+        # self.target_network_update_tracker.append(self.environment_steps)
+        # dir = self.log_dir + "/target_updates"
+        # np.save(dir, self.target_network_update_tracker)
 
     def define_worker_schedule_tracker(self):
         self.worker_schedule_tracker = {}
@@ -136,10 +138,10 @@ class ParameterServer(object):
         return self.parameter_updates
     
     def add_environment_steps(self, num_steps_to_add):
-        self.environment_steps+=num_steps_to_add
+        self.total_steps_all_workers+=num_steps_to_add
 
-    def return_environment_steps(self):
-        return self.environment_steps
+    def return_total_steps_all_workers(self):
+        return self.total_steps_all_workers
     
     def increment_total_episode_count(self):
         self.total_episodes+=1
@@ -147,31 +149,29 @@ class ParameterServer(object):
     def return_total_episode_count(self):
         return self.total_episodes
     
-    def accumulate_stats(self, reward, episode_time, ep_length, icm_reward = None):
+    def accumulate_stats(self, reward, episode_time, ep_length, win_rate):
         self.cumulative_rewards+=reward
         self.num_episodes_accumulated_over+=1
         self.episode_duration += episode_time
         self.ep_length+=ep_length
+        self.avg_win_rate = self.cumul_average(win_rate)
 
         # self.L_I+=L_I
         # self.L_F+=L_F
         # self.grad_norm = grad_norm
-        
-        if icm_reward is not None:
-            self.icm_reward += icm_reward
 
+    def cumul_average(self, new_win_rate):
+        new_avg = ((self.avg_win_rate*self.num_episodes_accumulated_over) + new_win_rate)/(self.num_episodes_accumulated_over+1)
+
+        return new_avg
+        
 
     def reset_accumulated_rewards(self):
         self.cumulative_rewards = 0
         self.num_episodes_accumulated_over = 0
         self.episode_duration = 0
         self.ep_length = 0
-        # self.L_I=0
-        # self.L_F=0
-        # self.grad_norm = 0
 
-        if self.icm_reward is not None:
-            self.icm_reward = 0
 
     def get_accumulated_stats(self):
         mean_reward = self.cumulative_rewards/self.num_episodes_accumulated_over
@@ -185,7 +185,7 @@ class ParameterServer(object):
 
         self.reset_accumulated_rewards()
         
-        return mean_reward,mean_icm_reward, mean_episode_duration, mean_episode_length, mean_total_ep_reward
+        return mean_reward,mean_icm_reward, mean_episode_duration, mean_episode_length, mean_total_ep_reward, self.avg_win_rate
 
 
 

@@ -1,4 +1,4 @@
-from models.icm_agent import RNNAgent
+from models.rnn_agent import RNNAgent
 from components.action_selectors import EpsilonGreedyActionSelector, DiscreteNoisyGreedyActionSelector
 import torch as th
 import pdb
@@ -7,11 +7,11 @@ import traceback
 
 # This multi-agent controller shares parameters between agents
 class CustomMAC():
-    def __init__(self, config, scheme, device = "cuda:0"):
+    def __init__(self, config, device = "cuda:0"):
         super().__init__()
-        self.n_agents = config["num_agents"]
+        self.n_agents = config["n_agents"]
         self.config = config
-        input_shape = self._get_input_shape(scheme)
+        input_shape = self._get_input_shape(self.config["obs_shape"])
         self.device = device
         self._build_agents(input_shape)
         self.agent_output_type = config["agent_output_type"]
@@ -84,7 +84,7 @@ class CustomMAC():
         #     traceback.print_exc()
 
 
-        # print(feature.shape)
+
         inputs.append(batch["obs"][:, t])  # b1av
 
         if self.config["obs_last_action"]:
@@ -123,7 +123,6 @@ class CustomMAC():
 
     def load_state(self, other_mac):
         self.agent.load_state_dict(other_mac.agent.state_dict())
-        self.encoder.load_state_dict(other_mac.encoder.state_dict())
 
     def cuda(self):
         self.agent.cuda()
@@ -138,10 +137,8 @@ class CustomMAC():
     def _build_agents(self, input_shape):
         self.agent = RNNAgent(self.config, input_shape, self.device).to(self.device)
 
-    def _get_input_shape(self, scheme):
-        input_shape = scheme["obs"]["vshape"]
-        if self.config["obs_last_action"]:
-            input_shape += scheme["actions_onehot"]["vshape"][0]
+    def _get_input_shape(self, obs_shape):
+        input_shape = obs_shape
         if self.config["obs_agent_id"]:
             input_shape += self.n_agents
 

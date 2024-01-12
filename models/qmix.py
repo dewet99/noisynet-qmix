@@ -10,7 +10,7 @@ class QMixer(nn.Module):
         super(QMixer, self).__init__()
 
         self.config = config
-        self.n_agents = config["num_agents"]
+        self.n_agents = config["n_agents"]
 
         # State dim include available actions, so add the above again:
         self.state_dim=self.n_agents*config["n_actions"]
