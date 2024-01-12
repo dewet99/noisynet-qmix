@@ -40,7 +40,7 @@ class CustomMAC():
         avail_actions = ep_batch["avail_actions"][:, t_ep]
 
         # Calculate agent Q-values for the step
-        agent_outputs, _ = self.forward(ep_batch, t_ep, test_mode=test_mode)
+        agent_outputs, _ = self.forward(ep_batch, t_ep)
 
         # do t_env+t_ep because t_env is only updated at the end of an episode
         chosen_actions = self.action_selector.select_action(agent_outputs[bs].to(self.device), avail_actions[bs].to(self.device), t_env, test_mode=test_mode)
@@ -49,20 +49,20 @@ class CustomMAC():
         return chosen_actions
     
    
-    def forward(self, ep_batch, t, test_mode=False, training=False):
+    def forward(self, ep_batch, t):
         """
         returns:
             agent_outputs, hidden_states
         """
-        inputs = self._build_inputs(ep_batch, t, training)
+        inputs = self._build_inputs(ep_batch, t)
 
-        agent_outs, self.hidden_states = self.agent(inputs, self.hidden_states.to(self.device), t, training)
+        agent_outs, self.hidden_states = self.agent(inputs, self.hidden_states.to(self.device), t)
 
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), self.hidden_states
     
 
     
-    def _build_inputs(self, batch, t, training = False):
+    def _build_inputs(self, batch, t):
         # Assumes homogenous agents with flat observations.
         # Other MACs might want to e.g. delegate building inputs to each agent
         bs = batch.batch_size

@@ -16,11 +16,34 @@ class ParameterServer(object):
         
         self.config = config
         self.define_worker_schedule_tracker()
+        
         self.total_episodes = 0
         self.parameter_updates = 0
 
         self.cumulative_rewards = 0
+
+        # Items from the get_stats method from the starcraft env
         self.avg_win_rate = 0
+        self.avg_battles_won = 0
+        self.avg_battles_game = 0
+        self.avg_battles_draw = 0
+        self.avg_timeouts = 0
+        self.avg_restarts = 0
+        
+        # Tracking test stats
+        self.can_log_test = True
+        self.test_cumulative_rewards = 0
+        self.test_num_episodes_accumulated_over = 0
+        self.test_ep_length = 0
+        self.test_avg_win_rate = []
+        self.test_avg_battles_won = 0
+        self.test_avg_battles_game = 0
+        self.test_avg_battles_draw = 0
+        self.test_avg_timeouts = 0
+        self.test_avg_restarts = 0
+        self.test_total_t = 0
+
+
         self.icm_reward = 0
         self.num_episodes_accumulated_over = 0
 
@@ -68,6 +91,28 @@ class ParameterServer(object):
         self.worker_schedule_tracker = {}
         for worker_id in range(self.config["num_executors"]):
             self.worker_schedule_tracker[f"worker_{worker_id}"] = 0
+
+    # def define_worker_test_tracker(self):
+    #     """
+    #     Tracks whether a worker has completed a set of testing episodes, and if all workers have completed a set,
+    #     the learner will log the stats against the mean of the steps where the workers started tracking.
+    #     """
+    #     self.worker_test_tracker = {}
+    #     for worker_id in range(self.config["num_executors"]):
+    #         self.worker_test_tracker[f"worker_{worker_id}"] = False
+
+    # def get_worker_test_tracker_dict(self):
+    #     return self.worker_test_tracker
+    
+    # def set_worker_test_tracker_dict(self, worker_id, state):
+    #     self.worker_test_tracker[f"worker_{worker_id}"] = state
+    
+    # def set_worker_test_tracker_dict_false(self):
+    #     for key in self.worker_test_tracker:
+    #         self.worker_test_tracker[key] = False
+    #     # self.worker_test_tracker[f"worker_{worker_id}"] = False
+    
+        
 
     def get_worker_steps_by_id(self, worker_id):
         try:
@@ -149,21 +194,18 @@ class ParameterServer(object):
     def return_total_episode_count(self):
         return self.total_episodes
     
-    def accumulate_stats(self, reward, episode_time, ep_length, win_rate):
+    def accumulate_stats(self, reward, episode_time, ep_length, get_stats_dict):
         self.cumulative_rewards+=reward
         self.num_episodes_accumulated_over+=1
         self.episode_duration += episode_time
         self.ep_length+=ep_length
-        self.avg_win_rate = self.cumul_average(win_rate)
 
-        # self.L_I+=L_I
-        # self.L_F+=L_F
-        # self.grad_norm = grad_norm
-
-    def cumul_average(self, new_win_rate):
-        new_avg = ((self.avg_win_rate*self.num_episodes_accumulated_over) + new_win_rate)/(self.num_episodes_accumulated_over+1)
-
-        return new_avg
+        self.avg_win_rate += get_stats_dict["win_rate"]
+        self.avg_battles_won += get_stats_dict["battles_won"]
+        self.avg_battles_game += get_stats_dict["battles_game"]
+        self.avg_battles_draw += get_stats_dict["battles_draw"]
+        self.avg_timeouts += get_stats_dict["timeouts"]
+        self.avg_restarts += get_stats_dict["restarts"]
         
 
     def reset_accumulated_rewards(self):
@@ -175,17 +217,64 @@ class ParameterServer(object):
 
     def get_accumulated_stats(self):
         mean_reward = self.cumulative_rewards/self.num_episodes_accumulated_over
-        mean_episode_duration = self.episode_duration/self.num_episodes_accumulated_over
-        mean_icm_reward = self.icm_reward/self.num_episodes_accumulated_over
         mean_episode_length = self.ep_length/self.num_episodes_accumulated_over
-        # mean_lf = self.L_F/self.num_episodes_accumulated_over
-        # mean_li = self.L_I/(self.ep_length)
-        # mean_grad = self.grad_norm/self.num_episodes_accumulated_over
-        mean_total_ep_reward = (self.cumulative_rewards+self.icm_reward)/self.num_episodes_accumulated_over
+        
+
+        acc_stats_dict = {
+            "mean_train_reward": mean_reward,
+            "mean_train_episode_length": mean_episode_length,
+        }
 
         self.reset_accumulated_rewards()
+        return acc_stats_dict
+
+
+    def accumulate_test_stats(self, reward, ep_length, get_stats_dict):
+        self.test_cumulative_rewards+=reward
+        self.test_num_episodes_accumulated_over+=1
+        self.test_ep_length+=ep_length
+
+        self.test_avg_win_rate.append(get_stats_dict["win_rate"])
+        # self.test_avg_battles_won += get_stats_dict["battles_won"]
+        # self.test_avg_battles_game += get_stats_dict["battles_game"]
+        # self.test_avg_battles_draw += get_stats_dict["battles_draw"]
+        # self.test_avg_timeouts += get_stats_dict["timeouts"]
+        # self.test_avg_restarts += get_stats_dict["restarts"]
+
+    def get_accumulated_test_stats(self):
+        mean_reward = self.test_cumulative_rewards/self.test_num_episodes_accumulated_over
+        mean_episode_length = self.test_ep_length/self.test_num_episodes_accumulated_over
+        win_rate = sum(self.test_avg_win_rate)/len(self.test_avg_win_rate)
+
+        acc_stats_dict = {
+            "test_mean_reward": mean_reward,
+            "test_mean_episode_length": mean_episode_length,
+            "test_avg_win_rate": win_rate,
+        }
+
+        self.reset_test_stats()
+        return acc_stats_dict
         
-        return mean_reward,mean_icm_reward, mean_episode_duration, mean_episode_length, mean_total_ep_reward, self.avg_win_rate
+
+    def reset_test_stats(self):
+        self.test_avg_win_rate.clear()
+        self.test_avg_battles_won = 0
+        self.test_avg_battles_game = 0
+        self.test_avg_battles_draw = 0
+        self.test_avg_timeouts = 0
+        self.test_avg_restarts = 0
+        self.test_cumulative_rewards = 0
+        self.test_num_episodes_accumulated_over = 0
+        self.test_ep_length = 0
+
+    def get_can_log_test(self):
+        return self.can_log_test
+    
+    def set_can_log_test(self, state):
+        self.can_log_test = state
+
+
+
 
 
 

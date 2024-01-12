@@ -52,6 +52,8 @@ class Executor(object):
         self.setup()
         self.setup_logger()
 
+        self.total_t = 0
+
 
     def run(self):
         try:
@@ -61,20 +63,18 @@ class Executor(object):
 
             # add parameter sync frequency otherwise there will be one less logging point than we want. Or something. Don't overthink it.
             while param_updates<self.config["t_max"] + self.config["worker_parameter_sync_frequency"]:
+                # Number of training steps that has been done
                 param_updates = ray.get(self.parameter_server.get_parameter_update_steps.remote())
 
+                # Total cumulative number of steps that have been taken by all executors 
+                # worker_steps = ray.get(self.parameter_server.get_worker_steps_by_id.remote(self.worker_id))
+
                 if param_updates % self.config["worker_parameter_sync_frequency"] == 0:
-                    # These two can be the same function but I leave as is for now
                     self.sync_with_parameter_server()
 
-                # #TODO Implement code here to run n training episodes every j training episodes
-                
-                episode_batch = self.collect_experience()
 
-                if self.config["save_obs_for_debug"]:
-                    # Saves the observations of a single episode if you want to load it into a notebook and see what the agents see
-                    np.save("epbatch_obs", episode_batch["obs"])
-                    self.config["save_obs_for_debug"] = False
+                
+                episode_batch = self.collect_experience(test_mode = False)
 
                 self.remote_buffer.insert_episode_batch.remote(episode_batch)
 
@@ -83,7 +83,7 @@ class Executor(object):
         except Exception as e:
             traceback.print_exc()
 
-    def collect_experience(self):
+    def collect_experience(self, test_mode = False):
         """
         Runs an episode and stores the collected information in the replay buffer
         """
@@ -91,9 +91,11 @@ class Executor(object):
         episode_start = time.time()
 
         try:
+            # THIS HAS POTENTIALLY BEEN DEPRECATED
+            pass
             # This way, epsilon is calculated based on the worker's individual steps.I.e epsilon is independent of the number of workers, so each worker
             # has to step eg 500k times (depending on config) for epsilon to reach its min value
-            global_steps = ray.get(self.parameter_server.get_worker_steps_by_id.remote(self.worker_id))
+            # global_steps = ray.get(self.parameter_server.get_worker_steps_by_id.remote(self.worker_id))
 
             # This way, epsilon decays based on the total number of steps. So if you have four workers and each has stepped 125k times, then
             # epsilon is calculated fort each worker as if the total number of steps is 500k
@@ -135,7 +137,7 @@ class Executor(object):
 
                 # Pass the entire batch of experiences up till now to the mac to select actions
                 with torch.no_grad():
-                    actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=global_steps, test_mode=False)
+                    actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.total_t, test_mode=test_mode)
                     reward, terminated, env_info = self.env.step(actions[0])
 
                 reward_episode.append(reward)
@@ -152,6 +154,9 @@ class Executor(object):
 
                 self.t += 1
 
+                # Cumulative number of steps, does not reset and does not track test_episode steps
+                self.total_t += 1
+
             raw_observations = self.env.get_obs()
 
             last_data = {
@@ -162,11 +167,13 @@ class Executor(object):
             
             self.batch.update(last_data, ts=self.t)
 
-            actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=global_steps, test_mode=False)
+            actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.total_t, test_mode=test_mode)
 
             self.batch.update({"actions": actions}, ts=self.t)
 
             
+            # Log training stats:
+
             # Parameter server keeps track of global steps and episodes
             # Add the number of steps in this executor's episode to the global count
             self.parameter_server.add_environment_steps.remote(self.t)
@@ -175,9 +182,11 @@ class Executor(object):
             self.parameter_server.increment_total_episode_count.remote()
 
             # Accumulate reward stats in parameter server
-            win_rate = self.env.get_stats()["win_rate"]
-            self.parameter_server.accumulate_stats.remote(sum(reward_episode), time.time() - episode_start, self.t, win_rate)
+            get_stats_dict = self.env.get_stats()
+            self.parameter_server.accumulate_stats.remote(sum(reward_episode), time.time() - episode_start, self.t, get_stats_dict)
             self.parameter_server.accumulate_worker_steps_by_id.remote(self.worker_id, self.t)
+            
+
 
             return self.batch
         
@@ -194,7 +203,8 @@ class Executor(object):
         self.batch = self.new_batch()
         self.env.reset()
         self.t = 0
-    
+        
+
     def setup(self):
         scheme, groups, preprocess = self.generate_scheme()
     

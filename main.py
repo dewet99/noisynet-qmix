@@ -3,7 +3,7 @@ from components.replay_buffer import Remote_ReplayBuffer, generate_replay_scheme
 from components.parameter_server import ParameterServer
 from utils.read_config import merge_yaml_files, merge_dicts
 from components.executor import Executor
-from components.testing_executor import TestExecutor
+from components.testing_executor import Test_Executor
 from components.learner import Learner
 import yaml
 
@@ -27,6 +27,7 @@ def main(args):
     
     if args[1] == "train":
         workers = [Executor.remote(config, i) for i in range (config["num_executors"])]
+        test_worker = Test_Executor.remote(config, 0)
         config_ref = workers[0].retrieve_updated_config.remote()
         config = ray.get(config_ref)
 
@@ -44,6 +45,8 @@ def main(args):
         # set remote objects
         for worker in workers:
             worker.set_remote_objects.remote(remote_buffer, parameter_server)
+        
+        test_worker.set_remote_objects.remote(parameter_server)
 
         learner.set_remote_objects.remote(remote_buffer, parameter_server)
 
@@ -52,7 +55,7 @@ def main(args):
         ray.get(parameter_server.define_param_list.remote(param_list))
         ray.get(learner.update_parameter_server.remote())
 
-        all_actors = workers + [learner]
+        all_actors = workers + [learner] + [test_worker]
 
         ray.wait([worker.run.remote() for worker in all_actors])       
 
@@ -60,11 +63,7 @@ def main(args):
         # ray.timeline(filename="timeline.json")
         
         sys.exit(1)
-    elif args[1] == "test":
-        worker = TestExecutor(config, 0)
 
-        worker.run()
-        sys.exit(1)
     else:
         print ("No argument specified, exiting")
         sys.exit(1)

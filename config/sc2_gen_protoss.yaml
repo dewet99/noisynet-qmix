@@ -6,37 +6,37 @@ rnn_hidden_dim: 64
 action_selector: "epsilon_greedy"
 epsilon_start: 1.0
 epsilon_finish: 0.05
-epsilon_anneal_time: 1000000
-t_max: 100000 #number of timesteps to train for before interrupting
+epsilon_anneal_time: 100000
+t_max: 10050000 #number of timesteps to train for before interrupting
 
 worker_parameter_sync_frequency: 10 # How many parameter updates should occur before the workers sync. 
 
 # --- REPLAY Parameters ---
-use_per: True # use prioritized experience replay
+use_per: False # use prioritized experience replay
 prioritized_buffer_alpha: 0.6
 per_eta: 0.9
-buffer_size: 1440 # this will be very heavily dependent on your available RAM, as well as episode length limit
+buffer_size: 5000 # this will be very heavily dependent on your available RAM, as well as episode length limit
 
 # --- RL hyperparameters ---
-batch_size: 32 # number of episodes used to backprop and update networks
+batch_size: 128 # number of episodes used to backprop and update networks
 random_update: False # whether a subset sequence of transitions should be sampled from each episode
 recurrent_sequence_length: 96 # how many transitions should be sampled from each episode in the batch, if random_update = True
-lr: 0.0005 # Learning rate for agents
+lr: 0.001 # Learning rate for agents
 optim_alpha: 0.99 # RMSProp alpha
 optim_eps: 0.00001 # RMSProp epsilon
 grad_norm_clip: 20 # Reduce magnitude of gradients above this L2 norm
 
 #--- R2D2 Stuff ---
 # use_burnin implies that we will store hidden states
-use_burnin: True
+use_burnin: False
 burn_in_step_count: 32 #number of steps to burn hidden state in
 value_fn_rescaling: False
 
 #Ablation
-num_executors: 8 # capped at total_num_cpu_threads - 4
-n_step_return: True
+num_executors: 4 # capped at total_num_cpu_threads - 4
+n_step_return: False
 n_step: 8
-standardise_rewards: True
+standardise_rewards: False
 
 #Transfer_learning:
 use_transfer: False
@@ -48,7 +48,7 @@ reward_clip_max: 5
 reward_clip_min: -5
 
 # update the target network every {} episodes
-target_update_interval: 100
+target_update_interval: 200
 
 # use the Q_Learner to train
 agent_output_type: "q"
@@ -62,12 +62,8 @@ hypernet_embed: 64
 name: "smac_experiment_1"
 
 # --- Test ---
-save_obs_for_debug: False
-test_executable_path: "./environment_executables/experiment_5_visible/experiment_5_visible.x86_64"
-test_models_path: "./results/experiment_5_transfer/models/40000"
-num_test_episodes: 400
-test_timescale: 1
-
+test_interval: 10000
+n_test_episodes: 32
 
 # --- Logging options ---
 #use_tensorboard: True # Log results to tensorboard

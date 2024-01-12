@@ -9,6 +9,8 @@ __pycache__/
 
 #Custom FOlders
 results/
+figures/
+
 # C extensions
 *.so
 

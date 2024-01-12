@@ -19,7 +19,7 @@ import yaml
 from utils.utils import signed_hyperbolic, signed_parabolic
 from models.ICMModel_2 import ICMModel
 
-@ray.remote(num_gpus = 0.99, num_cpus=2, max_restarts=10)
+@ray.remote(num_gpus = 0.99, num_cpus=1, max_restarts=10)
 class Learner(object):
     def __init__(self, config):
         # super().__init__()
@@ -197,13 +197,13 @@ class Learner(object):
             if self.config["use_burnin"] and do_burn_in:
                 with torch.no_grad():
                     for t in range(burnin_batch["obs"].shape[1]):
-                        _, _ = self.mac.forward(burnin_batch, t=t, training=True)
-                        _, _ = self.target_mac.forward(burnin_batch, t=t, training=True)
+                        _, _ = self.mac.forward(burnin_batch, t=t)
+                        _, _ = self.target_mac.forward(burnin_batch, t=t)
 
             # Calculate q-values
             for t in range(T):
-                agent_outs, _ = self.mac.forward(batch, t=t, training=True)
-                target_agent_outs, _ = self.target_mac.forward(batch, t=t, training=True)
+                agent_outs, _ = self.mac.forward(batch, t=t)
+                target_agent_outs, _ = self.target_mac.forward(batch, t=t)
                 mac_out.append(agent_outs)
                 target_mac_out.append(target_agent_outs) 
 
@@ -394,19 +394,34 @@ class Learner(object):
         self.writer.add_scalar("Time_Stats/mean_training_step_time", self.time_info["Mean_training_loop_time"]/self.time_info["number_log_steps"], trainer_steps)
         self.writer.add_scalar("Time_Stats/environment_steps_taken", global_environment_steps_for_logging, trainer_steps)
 
-        # Log Executors' rewards
-        mean_extrinsic_reward, mean_icm_reward, mean_ep_duration, mean_ep_length, mean_total_reward, avg_win_rate = ray.get(self.parameter_server.get_accumulated_stats.remote())
+        # Log train stats
+        # acc_stats_dict= ray.get(self.parameter_server.get_accumulated_stats.remote())
 
-        self.writer.add_scalar("Reward_Stats/mean_total_reward", mean_total_reward, trainer_steps)
+        # for key, value in acc_stats_dict.items():
+        #     self.writer.add_scalar(f"Reward_Stats/{key}", value, trainer_steps)
 
-        self.writer.add_scalar("Reward_Stats/mean_extrinsic_reward", mean_extrinsic_reward, trainer_steps)
+        # Log test results:
+        # First check if all the executors have completed a set of testing episodes
+        can_log = ray.get(self.parameter_server.get_can_log_test.remote())
+        
+        if can_log:
+            test_acc_stats_dict = ray.get(self.parameter_server.get_accumulated_test_stats.remote())
+            
+            for key, value in test_acc_stats_dict.items():
+                self.writer.add_scalar(f"Test_stats/{key}", value, self.trainer_steps)
 
-        self.writer.add_scalar("Reward_Stats/mean_ep_length", mean_ep_length, trainer_steps)
+            self.parameter_server.set_can_log_test.remote(False)              
+            
+        # self.writer.add_scalar("Reward_Stats/mean_total_reward", acc_stats_dict["mean_total_reward"], trainer_steps)
 
-        self.writer.add_scalar("Reward_Stats/average_train_win_rate", avg_win_rate, trainer_steps)
-        self.writer.add_scalar("Reward_Stats/average_train_win_rate_vs_global_steps", avg_win_rate, global_environment_steps_for_logging)
+        # self.writer.add_scalar("Reward_Stats/mean_extrinsic_reward", acc_stats_dict["mean_extrinsic_reward"], trainer_steps)
 
-        self.writer.add_scalar("Time_Stats/mean_episode_duration", mean_ep_duration, trainer_steps)
+        # self.writer.add_scalar("Reward_Stats/mean_ep_length", ["mean_ep_length"], trainer_steps)
+
+        # self.writer.add_scalar("Reward_Stats/average_train_win_rate", acc_stats_dict["avg_win_rate"], trainer_steps)
+        # self.writer.add_scalar("Reward_Stats/average_train_win_rate_vs_global_steps", acc_stats_dict["avg_win_rate"], global_environment_steps_for_logging)
+
+        # self.writer.add_scalar("Time_Stats/mean_episode_duration", acc_stats_dict["mean_episode_duration"], trainer_steps)
 
         # log worker steps
         worker_steps_dict = ray.get(self.parameter_server.get_worker_steps_dict.remote())
