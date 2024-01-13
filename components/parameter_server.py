@@ -33,9 +33,9 @@ class ParameterServer(object):
         # Tracking test stats
         self.can_log_test = True
         self.test_cumulative_rewards = 0
-        self.test_num_episodes_accumulated_over = 0
+        self.test_num_episodes_accumulated_over = 1
         self.test_ep_length = 0
-        self.test_avg_win_rate = []
+        self.test_avg_win_rate = 0
         self.test_avg_battles_won = 0
         self.test_avg_battles_game = 0
         self.test_avg_battles_draw = 0
@@ -229,12 +229,12 @@ class ParameterServer(object):
         return acc_stats_dict
 
 
-    def accumulate_test_stats(self, reward, ep_length, get_stats_dict, total_t):
-        self.test_cumulative_rewards+=reward
-        self.test_num_episodes_accumulated_over+=1
-        self.test_ep_length+=ep_length
+    def log_test_stats(self, reward, ep_length, win_rate, total_t, num_eps):
+        self.test_cumulative_rewards=reward
+        self.test_num_episodes_accumulated_over = num_eps
+        self.test_ep_length=ep_length
 
-        self.test_avg_win_rate.append(get_stats_dict["win_rate"])
+        self.test_avg_win_rate = win_rate
         self.test_total_t = total_t
         # self.test_avg_battles_won += get_stats_dict["battles_won"]
         # self.test_avg_battles_game += get_stats_dict["battles_game"]
@@ -245,7 +245,7 @@ class ParameterServer(object):
     def get_accumulated_test_stats(self):
         mean_reward = self.test_cumulative_rewards/self.test_num_episodes_accumulated_over
         mean_episode_length = self.test_ep_length/self.test_num_episodes_accumulated_over
-        win_rate = sum(self.test_avg_win_rate)/len(self.test_avg_win_rate)
+        win_rate = self.test_avg_win_rate
 
         acc_stats_dict = {
             "test_mean_reward": mean_reward,
@@ -258,14 +258,14 @@ class ParameterServer(object):
         
 
     def reset_test_stats(self):
-        self.test_avg_win_rate.clear()
+        self.test_avg_win_rate = 0
         self.test_avg_battles_won = 0
         self.test_avg_battles_game = 0
         self.test_avg_battles_draw = 0
         self.test_avg_timeouts = 0
         self.test_avg_restarts = 0
         self.test_cumulative_rewards = 0
-        self.test_num_episodes_accumulated_over = 0
+        self.test_num_episodes_accumulated_over = 1
         self.test_ep_length = 0
 
     def get_can_log_test(self):

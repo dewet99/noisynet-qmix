@@ -86,8 +86,17 @@ class Test_Executor(object):
                     
 
                     # Run test episodes
+                    test_rewards = 0
+                    test_episode_lengths = 0
+
                     for _ in range(n_test_ep):
-                        self.collect_experience(test_mode=True)
+                        reward_episode, ep_length = self.collect_experience(test_mode=True)
+
+                        test_rewards+=reward_episode
+                        test_episode_lengths+=ep_length
+
+                    win_rate = self.env.get_stats()["win_rate"]
+                    self.parameter_server.log_test_stats.remote(test_rewards, test_episode_lengths, win_rate, self.total_t, n_test_ep)
 
                     self.parameter_server.set_can_log_test.remote(True)
                     
@@ -187,11 +196,11 @@ class Test_Executor(object):
 
 
             # Accumulate test reward stats in parameter server
-            get_stats_dict = self.env.get_stats()
-            self.parameter_server.accumulate_test_stats.remote(sum(reward_episode), self.t, get_stats_dict, self.total_t)
+            # get_stats_dict = self.env.get_stats()
+            # self.parameter_server.accumulate_test_stats.remote(sum(reward_episode), self.t, get_stats_dict, self.total_t)
 
 
-            return self.batch
+            return episode_return, self.t
         
         except Exception as e:
             traceback.print_exc()
