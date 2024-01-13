@@ -7,10 +7,12 @@ __pycache__/
 3rdparty/
 SMAC_Maps.zip
 
+
+
 #Custom FOlders
 results/
 figures/
-
+Comparing_Results.ipynb
 # C extensions
 *.so
 
