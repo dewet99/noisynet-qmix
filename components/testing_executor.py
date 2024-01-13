@@ -84,11 +84,15 @@ class Test_Executor(object):
                     print(f"Testing Executor {self.worker_id} running {n_test_ep} test episodes at local step {self.total_t}")
                     self.last_test_T = self.total_t
                     
+
                     # Run test episodes
                     for _ in range(n_test_ep):
                         self.collect_experience(test_mode=True)
 
                     self.parameter_server.set_can_log_test.remote(True)
+                    
+                    # Reset environment battle stats so win rate can be calculated based only on current iteration of evaluation episodes
+                    self.reset_testing_executor_battle_stats()
                     print(f"Executor {self.worker_id} done testing")
 
             sys.exit(1)
@@ -181,9 +185,6 @@ class Test_Executor(object):
 
             self.batch.update({"actions": actions}, ts=self.t)
 
-            
-            # Log training stats:
-
 
             # Accumulate test reward stats in parameter server
             get_stats_dict = self.env.get_stats()
@@ -266,6 +267,11 @@ class Test_Executor(object):
             if param_name in new_params:
                 param_data = torch.tensor(ray.get(new_params[param_name])).to(self.device)
                 param_val.data.copy_(param_data)
+
+    def reset_testing_executor_battle_stats(self):
+        self.env.battles_won = 0
+        self.env.battles_game = 0
+
 
 
 

@@ -3,7 +3,7 @@
 # --- Agent Parameters ---
 obs_agent_id: True
 rnn_hidden_dim: 64
-action_selector: "noisy"
+action_selector: "epsilon_greedy"
 epsilon_start: 1.0
 epsilon_finish: 0.05
 epsilon_anneal_time: 100000
@@ -33,7 +33,7 @@ burn_in_step_count: 32 #number of steps to burn hidden state in
 value_fn_rescaling: False
 
 #Ablation
-num_executors: 4 # capped at total_num_cpu_threads - 4
+num_executors: 8 # capped at total_num_cpu_threads - 4
 n_step_return: False
 n_step: 8
 standardise_rewards: False
