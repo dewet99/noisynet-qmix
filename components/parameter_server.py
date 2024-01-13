@@ -229,12 +229,13 @@ class ParameterServer(object):
         return acc_stats_dict
 
 
-    def accumulate_test_stats(self, reward, ep_length, get_stats_dict):
+    def accumulate_test_stats(self, reward, ep_length, get_stats_dict, total_t):
         self.test_cumulative_rewards+=reward
         self.test_num_episodes_accumulated_over+=1
         self.test_ep_length+=ep_length
 
         self.test_avg_win_rate.append(get_stats_dict["win_rate"])
+        self.test_total_t = total_t
         # self.test_avg_battles_won += get_stats_dict["battles_won"]
         # self.test_avg_battles_game += get_stats_dict["battles_game"]
         # self.test_avg_battles_draw += get_stats_dict["battles_draw"]
@@ -253,7 +254,7 @@ class ParameterServer(object):
         }
 
         self.reset_test_stats()
-        return acc_stats_dict
+        return acc_stats_dict, self.test_total_t
         
 
     def reset_test_stats(self):

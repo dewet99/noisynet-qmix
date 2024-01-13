@@ -53,6 +53,7 @@ class Executor(object):
         self.setup_logger()
 
         self.total_t = 0
+        
 
 
     def run(self):

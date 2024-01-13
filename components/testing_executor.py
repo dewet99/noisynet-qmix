@@ -187,7 +187,7 @@ class Test_Executor(object):
 
             # Accumulate test reward stats in parameter server
             get_stats_dict = self.env.get_stats()
-            self.parameter_server.accumulate_test_stats.remote(sum(reward_episode), self.t, get_stats_dict)
+            self.parameter_server.accumulate_test_stats.remote(sum(reward_episode), self.t, get_stats_dict, self.total_t)
 
 
             return self.batch

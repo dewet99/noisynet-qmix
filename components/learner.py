@@ -183,9 +183,6 @@ class Learner(object):
             T = batch["obs"].shape[1]
             N = batch["obs"].shape[2]
 
-            if self.config["action_selector"] == "noisy":
-                self.mac.agent.sample_noise()
-                self.target_mac.agent.sample_noise()
             
             mac_out = []
             self.mac.init_hidden(batch.batch_size, hidden_state=init_hidden_state)
@@ -212,7 +209,6 @@ class Learner(object):
 
             # Pick the Q-Values for the actions taken by each agent
             chosen_action_qvals = torch.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
-
 
             # We don't need the first timestep's Q-Value estimate for calculating targets
             target_mac_out = torch.stack(target_mac_out[1:], dim=1)  # Concat across time
@@ -284,6 +280,10 @@ class Learner(object):
             loss.backward()
             grad_norm = torch.nn.utils.clip_grad_norm_(self.trainable_parameters, self.config["grad_norm_clip"])
             self.optimiser.step()
+
+            if self.config["action_selector"] == "noisy":
+                self.mac.agent.sample_noise()
+                self.target_mac.agent.sample_noise()
 
             # Update target networks:
             if (self.trainer_steps - self.previous_target_update_episode) / (self.config["target_update_interval"]) >= 1.0:
@@ -405,10 +405,10 @@ class Learner(object):
         can_log = ray.get(self.parameter_server.get_can_log_test.remote())
         
         if can_log:
-            test_acc_stats_dict = ray.get(self.parameter_server.get_accumulated_test_stats.remote())
+            test_acc_stats_dict, total_t = ray.get(self.parameter_server.get_accumulated_test_stats.remote())
             
             for key, value in test_acc_stats_dict.items():
-                self.writer.add_scalar(f"Test_stats/{key}", value, self.trainer_steps)
+                self.writer.add_scalar(f"Test_stats/{key}", value, total_t)
 
             self.parameter_server.set_can_log_test.remote(False)              
             
