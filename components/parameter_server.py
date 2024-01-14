@@ -229,15 +229,15 @@ class ParameterServer(object):
         return acc_stats_dict
 
 
-    def log_test_stats(self, reward, ep_length, win_rate, total_t, num_eps):
+    def log_test_stats(self, reward, ep_length, stats_dict, total_t, num_eps):
         self.test_cumulative_rewards=reward
         self.test_num_episodes_accumulated_over = num_eps
         self.test_ep_length=ep_length
 
-        self.test_avg_win_rate = win_rate
+        self.test_avg_win_rate = stats_dict["win_rate"]
         self.test_total_t = total_t
-        # self.test_avg_battles_won += get_stats_dict["battles_won"]
-        # self.test_avg_battles_game += get_stats_dict["battles_game"]
+        self.test_avg_battles_won = stats_dict["battles_won"]
+        self.test_avg_battles_game = stats_dict["battles_game"]
         # self.test_avg_battles_draw += get_stats_dict["battles_draw"]
         # self.test_avg_timeouts += get_stats_dict["timeouts"]
         # self.test_avg_restarts += get_stats_dict["restarts"]
@@ -246,11 +246,15 @@ class ParameterServer(object):
         mean_reward = self.test_cumulative_rewards/self.test_num_episodes_accumulated_over
         mean_episode_length = self.test_ep_length/self.test_num_episodes_accumulated_over
         win_rate = self.test_avg_win_rate
+        battles_won = self.test_avg_battles_won
+        battles_played = self.test_avg_battles_game
 
         acc_stats_dict = {
             "test_mean_reward": mean_reward,
             "test_mean_episode_length": mean_episode_length,
             "test_avg_win_rate": win_rate,
+            "test_avg_battles_won": battles_won,
+            "test_avg_battles_played": battles_played
         }
 
         self.reset_test_stats()

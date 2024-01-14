@@ -13,6 +13,8 @@ SMAC_Maps.zip
 results/
 figures/
 Comparing_Results.ipynb
+csv/
+
 # C extensions
 *.so
 

@@ -95,8 +95,8 @@ class Test_Executor(object):
                         test_rewards+=reward_episode
                         test_episode_lengths+=ep_length
 
-                    win_rate = self.env.get_stats()["win_rate"]
-                    self.parameter_server.log_test_stats.remote(test_rewards, test_episode_lengths, win_rate, self.total_t, n_test_ep)
+                    stats_dict = self.env.get_stats()
+                    self.parameter_server.log_test_stats.remote(test_rewards, test_episode_lengths, stats_dict, self.total_t, n_test_ep)
 
                     self.parameter_server.set_can_log_test.remote(True)
                     
@@ -278,8 +278,8 @@ class Test_Executor(object):
                 param_val.data.copy_(param_data)
 
     def reset_testing_executor_battle_stats(self):
-        self.env.battles_won = 0
-        self.env.battles_game = 0
+        self.env.env.battles_won = 0
+        self.env.env.battles_game = 0
 
 
 
