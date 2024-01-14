@@ -6,6 +6,7 @@ The primary goal of this repo is to implement the NoisyNet for exploration paper
 - [Overview](#overview)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
+- [Features](#features)
 - [To Do](#to-do)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -52,7 +53,7 @@ python main.py train -config
 For config, specify the name of any of the config files in the config directory.
 This will generate a `results` directory, which contains tensorboard logs for training. 
 
-## Functionality and Components
+## Features
 This repo contains the following components for use in the SMACv2 benchmark:
 1. Distributed QMIX
 2. n-step returns
