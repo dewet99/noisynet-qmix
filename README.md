@@ -22,9 +22,8 @@ This section will explain how to install everything you need to be able to run e
     git clone https://github.com/dewet99/noisynet-qmix.git
     ```
 
-2. Install StarCraft II in the combining-improvements-in-marl directory. It will take a while.
+2. Install StarCraft II in the cloned directory. It will take a while.
     ```bash
-    cd combining-improvements-in-marl
     sudo bash install_sc2.sh
     ```
 
