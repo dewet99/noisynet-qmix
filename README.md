@@ -19,7 +19,7 @@ This section will explain how to install everything you need to be able to run e
 
 1. Clone the repo. Later I'll make it into a Docker container for ease-of-use.
     ```bash
-    git clone https://github.com/dewet99/combining-improvements-in-marl.git
+    git clone https://github.com/dewet99/noisynet-qmix.git
     ```
 
 2. Install StarCraft II in the combining-improvements-in-marl directory. It will take a while.
