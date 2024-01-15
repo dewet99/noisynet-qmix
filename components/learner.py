@@ -19,7 +19,7 @@ import yaml
 from utils.utils import signed_hyperbolic, signed_parabolic
 from models.ICMModel_2 import ICMModel
 
-@ray.remote(num_gpus = 0.99, num_cpus=1, max_restarts=10)
+@ray.remote(num_gpus = 0.99, num_cpus=2, max_restarts=10)
 class Learner(object):
     def __init__(self, config):
         # super().__init__()
@@ -237,7 +237,7 @@ class Learner(object):
                 rewards_normed = rewards
 
             # Not necessary for any of the environments, but do it anyways
-            torch.clamp_(rewards_normed, max = self.config["reward_clip_max"], min=self.config["reward_clip_min"])
+            # torch.clamp_(rewards_normed, max = self.config["reward_clip_max"], min=self.config["reward_clip_min"])
 
             rewards_total = rewards_normed
 

@@ -12,7 +12,7 @@ SMAC_Maps.zip
 #Custom FOlders
 results/
 figures/
-Comparing_Results.ipynb
+#Comparing_Results.ipynb
 csv/
 
 # C extensions
