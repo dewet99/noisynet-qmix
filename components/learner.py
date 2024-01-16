@@ -17,7 +17,6 @@ import traceback
 import os
 import yaml
 from utils.utils import signed_hyperbolic, signed_parabolic
-from models.ICMModel_2 import ICMModel
 
 @ray.remote(num_gpus = 0.99, num_cpus=2, max_restarts=10)
 class Learner(object):

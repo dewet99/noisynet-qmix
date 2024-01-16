@@ -3,8 +3,6 @@ import torch.nn.functional as F
 import pdb
 import torch
 from torch.nn import init
-# from models.ICMModel import ICMModel
-from models.ICMModel_2 import ICMModel
 import numpy as np
 import time
 from torchrl.modules import NoisyLinear as NoisyLinearTorch
