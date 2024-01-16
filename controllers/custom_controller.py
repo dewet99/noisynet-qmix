@@ -1,5 +1,6 @@
 from models.rnn_agent import RNNAgent
 from components.action_selectors import EpsilonGreedyActionSelector, DiscreteNoisyGreedyActionSelector
+from models.NoisyLinear import NoisyLinear
 import torch as th
 import pdb
 import os
@@ -68,20 +69,6 @@ class CustomMAC():
         bs = batch.batch_size
         inputs = []
 
-        
-        # Depends on how you defined your replay buffer observation storate dtype. I used integers to be able to store 
-        # more of them, but dtype choice will depend on graphical fidelity of your environment.
-        # if batch["obs"][:,t].dtype == th.uint8:
-        #     obs = (batch["obs"][:,t]).to(th.float32)/255
-        # else:
-        #     obs = batch["obs"][:,t]
-
-        # try:
-        #     feature = self.encoder(obs.squeeze())
-        #     if training:
-        #         feature = feature.reshape(bs, self.config["num_agents"], -1)
-        # except Exception as e:
-        #     traceback.print_exc()
 
 
 
@@ -143,5 +130,10 @@ class CustomMAC():
             input_shape += self.n_agents
 
         return input_shape
-    def reset_agent_noise(self):
-        self.agent.reset_noise()
+    
+
+    def remove_agent_noise(self):
+        for layer in self.agent.fc2:
+            if isinstance(layer, NoisyLinear):
+                layer.remove_noise()
+

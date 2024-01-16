@@ -220,6 +220,8 @@ class Test_Executor(object):
         scheme, groups, preprocess = self.generate_scheme()
     
         self.mac = CustomMAC(self.config, device = self.device)
+        # THe agent used in testing shouldn't have any noise in their 2 layers
+        self.mac.remove_agent_noise()
 
         self.new_batch = partial(EpisodeBatch, scheme, groups, self.config["batch_size_run"], self.config["episode_limit"]+1, preprocess = preprocess, device = "cpu")
 
