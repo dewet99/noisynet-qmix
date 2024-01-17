@@ -59,7 +59,7 @@ hypernet_layers: 2
 hypernet_embed: 64
 
 
-name: "smac_experiment_1"
+name: "protoss_"
 
 # --- Test ---
 test_interval: 10000
