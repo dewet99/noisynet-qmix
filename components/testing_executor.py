@@ -234,8 +234,8 @@ class Test_Executor(object):
         self.config["episode_limit"] = self.env_info["episode_limit"]
 
     def setup_logger(self):
-        self.log_dir = "results/" + self.config["name"] +"_" + datetime.datetime.now().strftime("%d_%m_%H_%M")
-
+        self.log_dir = "results/" + self.config["name"] + str(self.config["env_args"]["capability_config"]["n_units"]) \
+            + "_vs_" + str(self.config["env_args"]["capability_config"]["n_enemies"]) + "_" + datetime.datetime.now().strftime("%d_%m_%H_%M")
     def close_env(self):
         self.env.close()
 

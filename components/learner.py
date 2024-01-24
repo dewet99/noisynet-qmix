@@ -57,8 +57,8 @@ class Learner(object):
 
         # self.log_base_dir = "results/" + self.config["name"] +"_" + datetime.datetime.now().strftime("%d_%m_%H_%M")
 
-        self.log_base_dir = "results/" + self.config["name"] + self.config["env_args"]["capability_config"]["n_units"] \
-            + "_vs_" + self.config["env_args"]["capability_config"]["n_enemies"] + "_" + datetime.datetime.now().strftime("%d_%m_%H_%M")
+        self.log_base_dir = "results/" + self.config["name"] + str(self.config["env_args"]["capability_config"]["n_units"]) \
+            + "_vs_" + str(self.config["env_args"]["capability_config"]["n_enemies"]) + "_" + datetime.datetime.now().strftime("%d_%m_%H_%M")
 
         # Target Networks:
         self.target_mac = CustomMAC(self.config)

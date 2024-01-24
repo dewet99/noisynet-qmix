@@ -3,7 +3,7 @@
 # --- Agent Parameters ---
 obs_agent_id: True
 rnn_hidden_dim: 64
-action_selector: "noisy"
+action_selector: "epsilon_greedy"
 epsilon_start: 1.0
 epsilon_finish: 0.05
 epsilon_anneal_time: 100000
@@ -21,7 +21,7 @@ buffer_size: 5000 # this will be very heavily dependent on your available RAM, a
 batch_size: 128 # number of episodes used to backprop and update networks
 random_update: False # whether a subset sequence of transitions should be sampled from each episode
 recurrent_sequence_length: 96 # how many transitions should be sampled from each episode in the batch, if random_update = True
-lr: 0.001 # Learning rate for agents
+lr: 0.0005 # Learning rate for agents
 optim_alpha: 0.99 # RMSProp alpha
 optim_eps: 0.00001 # RMSProp epsilon
 grad_norm_clip: 20 # Reduce magnitude of gradients above this L2 norm
@@ -35,7 +35,7 @@ value_fn_rescaling: False
 #Ablation
 num_executors: 6 # capped at total_num_cpu_threads - 4
 n_step_return: False
-n_step: 8
+n_step: 4
 standardise_rewards: False
 
 #Transfer_learning:
@@ -48,7 +48,7 @@ reward_clip_max: 5
 reward_clip_min: -5
 
 # update the target network every {} episodes
-target_update_interval: 200
+target_update_interval: 100
 
 # use the Q_Learner to train
 agent_output_type: "q"
@@ -59,7 +59,7 @@ hypernet_layers: 2
 hypernet_embed: 64
 
 
-name: "protoss_"
+name: "sparse_zerg_"
 
 # --- Test ---
 test_interval: 10000
@@ -74,9 +74,9 @@ log_every: 20 #log every time this number of trainer steps has elapsed
 
 env_args:
   continuing_episode: False
-  difficulty: "3"
+  difficulty: "7"
   game_version: null
-  map_name: "10gen_protoss"
+  map_name: "10gen_zerg"
   move_amount: 2
   obs_all_health: True
   obs_instead_of_state: False
@@ -98,28 +98,30 @@ env_args:
   conic_fov: False
   use_unit_ranges: True
   min_attack_range: 2
-  obs_own_pos: True
   num_fov_actions: 12
+  obs_own_pos: True
   capability_config:
     n_units: 5
-    n_enemies: 5
+    n_enemies: 5 
     team_gen:
       dist_type: "weighted_teams"
       unit_types: 
-        - "stalker"
-        - "zealot"
-        - "colossus"
+        - "zergling"
+        - "baneling"
+        - "hydralisk"
       weights:
         - 0.45
-        - 0.45
         - 0.1
+        - 0.45
+      exception_unit_types:
+        - "baneling"
       observe: True
+
     start_positions:
       dist_type: "surrounded_and_reflect"
       p: 0.5
       map_x: 32
       map_y: 32
-    
     # enemy_mask:
     #   dist_type: "mask"
     #   mask_probability: 0.5

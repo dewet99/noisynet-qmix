@@ -2,6 +2,7 @@ from models.rnn_agent import RNNAgent
 from components.action_selectors import EpsilonGreedyActionSelector, DiscreteNoisyGreedyActionSelector
 from models.NoisyLinear import NoisyLinear
 import torch as th
+import torch.nn as nn
 import pdb
 import os
 import traceback
@@ -133,7 +134,8 @@ class CustomMAC():
     
 
     def remove_agent_noise(self):
-        for layer in self.agent.fc2:
-            if isinstance(layer, NoisyLinear):
-                layer.remove_noise()
+        if isinstance(self.agent.fc2, nn.Sequential):
+            for layer in self.agent.fc2:
+                if isinstance(layer, NoisyLinear):
+                    layer.remove_noise()
 
